@@ -247,8 +247,16 @@
     background: var(--paper); border: 1px solid var(--paper-rule); border-radius: 30px;
     padding: 6px 8px 6px 6px;
     box-shadow: 0 10px 28px -16px rgba(28,25,22,0.25);
-    transition: opacity 240ms ease, transform 280ms cubic-bezier(.2,.8,.2,1);
+    transition: opacity 240ms ease, transform 280ms cubic-bezier(.2,.8,.2,1), border-color 280ms ease, box-shadow 280ms ease;
   }
+  .cmd.paused {
+    border-color: var(--lead);
+  }
+  @keyframes cmd-pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(200,85,45,0.10), 0 14px 32px -16px rgba(200,85,45,0.30); }
+    50%      { box-shadow: 0 0 0 7px rgba(200,85,45,0.06), 0 14px 32px -16px rgba(200,85,45,0.42); }
+  }
+  .cmd.paused { animation: cmd-pulse 2.6s ease-in-out infinite; }
   .cmd.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(12px); }
   .cmd .pp {
     width: 38px; height: 38px; border-radius: 50%;
@@ -272,7 +280,7 @@
     font-family: 'Fraunces', serif; font-style: italic; font-weight: 350; font-size: 15px;
     color: var(--ink); padding: 8px 4px 8px 10px;
   }
-  .cmd .search input::placeholder { color: var(--ink-3); }
+  .cmd .search input::placeholder { color: var(--lead); opacity: 0.75; }
   .cmd .submit {
     width: 30px; height: 30px; border-radius: 50%;
     background: var(--lead); color: var(--paper);
@@ -326,7 +334,10 @@
     color: var(--ink); text-wrap: pretty;
     border-left: 2px solid var(--lead); padding-left: 14px;
   }
+  .insights .body p { margin: 0; }
+  .insights .body p + p { margin-top: 10px; }
   .insights .body em { font-style: italic; }
+  .insights.expanded { max-height: 70vh; }
   .insights .empty {
     font-family: 'Fraunces', serif; font-style: italic; font-weight: 350; font-size: 14.5px;
     color: var(--ink-2); margin-top: 4px;
@@ -352,6 +363,16 @@
   .insights .connect-btn:hover { background: var(--lead); }
   .insights .connect-btn.on { background: var(--lead); }
   .insights .connect-btn svg { width: 12px; height: 12px; }
+  .insights .ghost-btn {
+    background: none; color: var(--ink-2); border: 1px solid var(--paper-rule); cursor: pointer;
+    padding: 8px 14px; border-radius: 20px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: color 160ms, border-color 160ms, background 160ms;
+  }
+  .insights .ghost-btn:hover { color: var(--ink); border-color: var(--ink); }
+  .insights .ghost-btn.copied { color: var(--lead); border-color: var(--lead); }
+  .insights .ghost-btn svg { width: 12px; height: 12px; }
   .insights .close-btn {
     background: none; border: 1px solid var(--paper-rule); color: var(--ink-3); cursor: pointer;
     width: 30px; height: 30px; border-radius: 50%;
@@ -450,6 +471,14 @@
     <div class="meta-row">
       <div class="src">Synthesized from <strong id="i-src-count">—</strong> transcript moments · <strong id="i-match-count">—</strong> atoms in scope</div>
       <div class="actions">
+        <button class="ghost-btn" id="i-expand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+          <span id="i-expand-label">Expand</span>
+        </button>
+        <button class="ghost-btn" id="i-copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="i-copy-label">Copy</span>
+        </button>
         <button class="connect-btn" id="i-connect">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="5" cy="6" r="2"></circle><circle cx="19" cy="6" r="2"></circle><circle cx="5" cy="18" r="2"></circle><circle cx="19" cy="18" r="2"></circle><line x1="7" y1="6" x2="17" y2="6"></line><line x1="7" y1="18" x2="17" y2="18"></line><line x1="5" y1="8" x2="5" y2="16"></line><line x1="19" y1="8" x2="19" y2="16"></line></svg>
           Show the Connections
@@ -510,7 +539,7 @@
     </div>
   </div>
 
-  <div class="footer-credit">A community is a stable atomic configuration · v3 · paused = query the lab</div>
+  <div class="footer-credit">A community is a stable atomic configuration · v3.1 · paused = query the lab</div>
 
 <script>
 /* ============================================================
@@ -660,21 +689,24 @@ const INSIGHTS = [
     keywords: ['lead','leadlead','lablead','mentor','mentoring','catalyst','distribute','bottleneck','gatekeep','assistant','leader','leadership','role','organize'],
     matchTags: ['Volunteer co-host','Onboarding fast-track','Office hours','Onboarding cohort','Cross-network intros','Anthropic direct line'],
     matchKinds: ['lead'],
-    body: "The lab is moving past a phase where one person carries the room. Lab leads aren\u2019t experts ranked above the community \u2014 they\u2019re catalysts who keep ideas circulating, validate quieter contributors, and absorb the energy-cost of community management so it doesn\u2019t fall on a single host. A small group of 10\u201320 self-identified leads, badged in the chat, gives newer creators a trusted DM to send when they\u2019re stuck on a prompt, a bug, or an idea."
+    body: "The lab is moving past a phase where one person carries the room. Lab leads aren\u2019t experts ranked above the community \u2014 they\u2019re catalysts who keep ideas circulating, validate quieter contributors, and absorb the energy-cost of community management so it doesn\u2019t fall on a single host. A small group of 10\u201320 self-identified leads, badged in the chat, gives newer creators a trusted DM to send when they\u2019re stuck on a prompt, a bug, or an idea.",
+    bodyLong: "The lab is moving past a phase where one person carries the room. The transcripts show a community that has outgrown the single-host model \u2014 there are too many regions, too many languages, too many parallel conversations for one person to seed, witness, and respond to. Without distribution, the founder burns out and the quieter voices stay quiet because nobody has the bandwidth to pull them forward.\n\nLab leads aren\u2019t experts ranked above the community \u2014 they\u2019re catalysts. Their job is to keep ideas circulating, validate quieter contributors when they post for the first time, and absorb the invisible labour of community management so it doesn\u2019t fall on a single host. The metaphor that kept returning in conversation was role models, not authorities: people who model what active participation looks like and make it safer for others to copy.\n\nThe practical shape is small \u2014 10 to 20 self-identified leads, lightly badged in the chat, distributed across regions and time zones. Members know who to DM when they\u2019re stuck on a prompt, a bug, or an idea they\u2019re afraid to post in front of everyone. The system is robust the moment no single failure point exists."
   },
   {
     id: 'monthly-brief',
     title: "Monthly briefs give the lab direction without dictating it",
     keywords: ['brief','monthly','challenge','direction','prompt','purpose','focus','project','assignment','goal'],
     matchTags: ['Monthly challenge brief','Universal problem statement','Cross-country co-build','Shared problem repo'],
-    body: "A recurring theme: creators love the openness of the lab, but their artifacts can feel personal or imaginary without a shared problem to point them at. A monthly or bi-weekly brief \u2014 a real, somewhat universal problem (campus orientation, classroom assessment, a curriculum gap) \u2014 lets people choose to engage, work solo or in small groups, and bring back artifacts that solve something real. Direction without dictation."
+    body: "A recurring theme: creators love the openness of the lab, but their artifacts can feel personal or imaginary without a shared problem to point them at. A monthly or bi-weekly brief \u2014 a real, somewhat universal problem (campus orientation, classroom assessment, a curriculum gap) \u2014 lets people choose to engage, work solo or in small groups, and bring back artifacts that solve something real. Direction without dictation.",
+    bodyLong: "A recurring theme across the conversations: creators love the openness of the lab, but without a shared problem to point at, their artifacts drift into the personal or the imaginary. People build something for their own classroom, share it, and the thread ends \u2014 because nobody else has the same exact problem in front of them that week.\n\nA monthly or bi-weekly brief solves this. Not a homework assignment \u2014 a real, somewhat universal problem framed openly enough that creators in different countries can interpret it through their own context: campus orientation for first-year students, formative classroom assessment, a curriculum gap nobody has addressed. People choose to engage or skip, work solo or in small groups, and bring back artifacts that all answer the same underlying question in different ways.\n\nThe value is in the comparison. When five educators in five countries respond to the same brief, the lab can see what travels and what is locally bound \u2014 which is exactly the kind of insight no one of them could produce alone. The brief gives direction without dictating, and the artifacts become a corpus instead of a scatter."
   },
   {
     id: 'workshops',
     title: "Workshops land deeper when there\u2019s homework between them",
     keywords: ['workshop','training','homework','session','cohort','learn','teach','curriculum','feedback','practice'],
     matchTags: ['Workshop + homework loop','Teacher confidence labs','Learning pathway design','Artifact peer review'],
-    body: "Existing AI workshops often dead-end at \u201chere\u2019s information \u2014 now go do something with it.\u201d The lab can do better: pair workshops a week apart, with homework in between, and use the second session for feedback on what people actually built. Not certifications, just a tight loop \u2014 input, attempt, critique. Anthropic courseware works as scaffolding; the lab provides the practice and the peers."
+    body: "Existing AI workshops often dead-end at \u201chere\u2019s information \u2014 now go do something with it.\u201d The lab can do better: pair workshops a week apart, with homework in between, and use the second session for feedback on what people actually built. Not certifications, just a tight loop \u2014 input, attempt, critique. Anthropic courseware works as scaffolding; the lab provides the practice and the peers.",
+    bodyLong: "Existing AI workshops \u2014 even good ones \u2014 tend to dead-end at \u201chere\u2019s information, now go do something with it.\u201d Participants leave inspired but isolated, and most of what they learned evaporates within a week because there\u2019s no next step that pulls them back.\n\nThe lab can do better by pairing sessions. The first workshop introduces the concept; participants take homework into their own context (a class, a brief, a prompt to try); the second session, a week later, is dedicated to feedback on what people actually built. Not certifications. Not lectures. A tight loop \u2014 input, attempt, critique, attempt again \u2014 which is how skilled practice actually develops in any domain.\n\nAnthropic\u2019s courseware works perfectly as scaffolding for the input phase. What the lab uniquely provides is the practice and the peers: a small enough audience that critique can be specific and kind, a diverse enough audience that the feedback expands your sense of what\u2019s possible. Lab leads host the second session and keep the conversation honest."
   },
   {
     id: 'small-groups',
@@ -682,70 +714,80 @@ const INSIGHTS = [
     keywords: ['small','smaller','group','breakout','feedback','context','intimate','whatsapp','chat','quiet','listener','lurk'],
     matchTags: ['Small-group breakout','Artifact peer review','Cross-school showcase'],
     matchKinds: ['quiet','active'],
-    body: "The main chat works, but many active contributors are working behind the scenes and don\u2019t bring their ideas to the full group. Smaller, contextual breakouts \u2014 grouped by a week\u2019s topic or by working language \u2014 lower the social cost of posting and let those quieter members surface. The lab leads\u2019 job here isn\u2019t to talk, it\u2019s to host the smaller room."
+    body: "The main chat works, but many active contributors are working behind the scenes and don\u2019t bring their ideas to the full group. Smaller, contextual breakouts \u2014 grouped by a week\u2019s topic or by working language \u2014 lower the social cost of posting and let those quieter members surface. The lab leads\u2019 job here isn\u2019t to talk, it\u2019s to host the smaller room.",
+    bodyLong: "The main chat works, but it has a known failure mode: many of the most active contributors are working hard behind the scenes \u2014 building, experimenting, learning fast \u2014 and never bring their work to the full group. The social cost of posting in a large channel is high, especially for newer members or for anyone who feels their idea isn\u2019t ready yet.\n\nSmaller breakouts dramatically lower that cost. Grouping by a week\u2019s topic (assessment, agents, video, classroom orchestration), by working language, or by phase of project means the audience is contextual: people who already share your frame, who can give specific feedback rather than generic encouragement. The conversation tightens, and quieter members start to surface because the room finally feels like the right size for their idea.\n\nThe lab leads\u2019 job in a breakout isn\u2019t to talk \u2014 it\u2019s to host. Make sure everyone gets a turn, ask the question that draws someone out, summarize back to the full lab what the small group decided. The whole becomes more than the chat."
   },
   {
     id: 'expertise',
     title: "An expertise directory \u2014 know who to DM",
     keywords: ['expertise','expert','skill','directory','badge','versed','dm','direct','message','reach','contact','versed','technical','bug','help','support'],
     matchTags: ['Expertise directory','Creator DMs','Claude Code deep-dive','Agent building','Workflow integration'],
-    body: "As creators get more technical \u2014 apps, websites, MCPs, debugging \u2014 a quick DM to someone who\u2019s already solved the same problem beats a generic forum post. Lab leads can be informally badged by what they\u2019ve actually built or fixed, so anyone hitting a wall on agents, prompting, video, or code knows whose handle to type first. Not formal credentials \u2014 a community-maintained map of who\u2019s versed in what."
+    body: "As creators get more technical \u2014 apps, websites, MCPs, debugging \u2014 a quick DM to someone who\u2019s already solved the same problem beats a generic forum post. Lab leads can be informally badged by what they\u2019ve actually built or fixed, so anyone hitting a wall on agents, prompting, video, or code knows whose handle to type first. Not formal credentials \u2014 a community-maintained map of who\u2019s versed in what.",
+    bodyLong: "The lab is moving up the stack. Members who started with prompts and artifacts are now shipping apps, websites, agents with tool use, MCP integrations. The questions they\u2019re asking are increasingly technical, and a generic post in the main chat is often the wrong place to ask them \u2014 too noisy, too slow, too easily missed.\n\nWhat works better is a quick DM to someone who has already solved the same problem. The lab leads can be informally badged by what they have actually built or fixed: prompting, agents, Claude Code, video, classroom orchestration, fine-tuning, deployment. Anyone hitting a wall knows whose handle to type first \u2014 and the lead either answers or routes the question to whoever can.\n\nThe point is explicitly not formal credentials. The lab doesn\u2019t want to become a certification body. What it needs is a community-maintained map of who is versed in what, updated as people\u2019s practice evolves \u2014 a directory that respects the fact that expertise here is built by doing, not granted by anyone outside the room."
   },
   {
     id: 'cross-country',
     title: "Different countries, similar struggles \u2014 connect them",
     keywords: ['country','global','cross','international','local','context','iceland','marking','assessment','similar','share','culture','translation','language'],
     matchTags: ['Cross-country co-build','Universal problem statement','Field translation','Local language fine-tune'],
-    body: "Educators in unconnected geographies keep arriving at the same problems \u2014 with very different local constraints. A heavily-examined system and a formative-assessment one don\u2019t translate cleanly, but the underlying questions about marking, feedback, and learning evidence are the same. Pairing creators across countries on a single brief surfaces what travels and what doesn\u2019t, and gives both sides something they couldn\u2019t build alone."
+    body: "Educators in unconnected geographies keep arriving at the same problems \u2014 with very different local constraints. A heavily-examined system and a formative-assessment one don\u2019t translate cleanly, but the underlying questions about marking, feedback, and learning evidence are the same. Pairing creators across countries on a single brief surfaces what travels and what doesn\u2019t, and gives both sides something they couldn\u2019t build alone.",
+    bodyLong: "Educators in completely unconnected geographies keep arriving at the same fundamental problems \u2014 only the local constraints are different. A teacher in Iceland working inside a heavily-examined system, a teacher in Catalonia working in a formative-assessment one, a teacher in the UK navigating a curriculum review: their assessment questions look totally different on the surface and turn out to be the same underneath.\n\nThe artifacts don\u2019t translate cleanly across these contexts \u2014 an assessment tool built for one system can be illegal or pedagogically inappropriate in another. But the underlying questions about marking, feedback, learning evidence, and student trust are universal, and the dialogue between two educators with different constraints is more useful than either of them comparing notes with a local colleague who shares all their assumptions.\n\nPairing creators across countries on a single brief is how the lab makes this productive. It surfaces what travels and what doesn\u2019t. It gives both sides a colleague who has had to think harder about an assumption they take for granted. And it produces a body of work that no single national context could generate on its own."
   },
   {
     id: 'university-research',
     title: "Universities can give the lab the evidence it doesn\u2019t have yet",
     keywords: ['university','research','evidence','data','stanford','academic','study','partner','impact','outcomes','learning','k-12','k12'],
     matchTags: ['University research partnership','K\u201312 evidence base','Coordinated ask upstream'],
-    body: "Outside reviews of AI in K\u201312 keep landing on weak evidence \u2014 not because the work isn\u2019t there, but because no one is measuring it. Lab leads who straddle classroom and university can broker research partnerships: the lab provides the practice and the artifacts, the university provides the methodology and the data structure. The community doesn\u2019t have to carry the evidence base alone \u2014 it has to be willing to be studied."
+    body: "Outside reviews of AI in K\u201312 keep landing on weak evidence \u2014 not because the work isn\u2019t there, but because no one is measuring it. Lab leads who straddle classroom and university can broker research partnerships: the lab provides the practice and the artifacts, the university provides the methodology and the data structure. The community doesn\u2019t have to carry the evidence base alone \u2014 it has to be willing to be studied.",
+    bodyLong: "Independent reviews of AI in K\u201312 keep landing on the same conclusion: the evidence base is weak. Not because the work isn\u2019t happening \u2014 the lab is proof that thoughtful classroom practice is everywhere \u2014 but because almost no one is measuring it in a way that academic, policy, or media reviewers will accept.\n\nLab leads who straddle classroom and university are unusually well-positioned to broker the partnership that fixes this. The lab provides the practice, the artifacts, the diversity of contexts, and the willingness to be studied. The university partner provides the methodology, the IRB process, the longitudinal frame, and the credibility that the rest of the system listens for.\n\nThe community doesn\u2019t have to carry the evidence base alone \u2014 it has to be willing to open up to research. That is a tradeoff: more documentation, more consent processes, more visibility. But the alternative is letting the next outside review continue to conclude that nobody has shown anything works."
   },
   {
     id: 'privacy',
     title: "Privacy compliance is a community problem, not a personal one",
     keywords: ['privacy','compliance','data','legal','gdpr','student','id','anonymous','consent','regulation','escalate','classroom'],
     matchTags: ['Privacy & compliance','K\u201312 evidence base','Coordinated ask upstream'],
-    body: "Once an artifact moves from one classroom to a district or a country, the privacy questions multiply: which legislation applies, whose data is in play, what to anonymize. No single creator is a compliance expert, and trying to figure it out alone is paralyzing. Practical patterns from the community \u2014 use a fake student ID, separate data from identifiers, document what you collected \u2014 are useful, but lab leads can also surface this upward as a coordinated ask to partners like Anthropic."
+    body: "Once an artifact moves from one classroom to a district or a country, the privacy questions multiply: which legislation applies, whose data is in play, what to anonymize. No single creator is a compliance expert, and trying to figure it out alone is paralyzing. Practical patterns from the community \u2014 use a fake student ID, separate data from identifiers, document what you collected \u2014 are useful, but lab leads can also surface this upward as a coordinated ask to partners like Anthropic.",
+    bodyLong: "As soon as an artifact moves from one classroom to a district, a country, or another country, the privacy questions multiply. Which legislation applies? Whose data is in play \u2014 the teacher\u2019s, the student\u2019s, the parent\u2019s? What has to be anonymized before anything is shared, and what counts as anonymized in the first place? The cross-jurisdictional version of this problem is genuinely hard, and no individual creator is a compliance expert.\n\nTrying to figure it out alone is paralyzing \u2014 and the most common outcome is that the artifact never leaves the original classroom, even when it should. The lab has practical patterns that work: use a fabricated student ID, separate data from identifiers, document what you collected and why, default to the strictest jurisdiction in the room. These aren\u2019t legal advice, they\u2019re working defaults that let people move forward.\n\nBut lab leads can also surface this upward. A pattern of compliance questions across the community is a coordinated ask \u2014 to partners like Anthropic, to legal communities, to research collaborators \u2014 not 200 individual creators each trying to get clarity in their inbox. Treating compliance as a community problem rather than a personal one is what unlocks scale."
   },
   {
     id: 'escalation',
     title: "Escalating an artifact \u2014 from one classroom to many",
     keywords: ['escalate','scale','grow','share','repository','steam','repo','colleagues','students','school','district','government'],
     matchTags: ['Escalating an artifact','Shared problem repo','Government curriculum pitch','Cross-school showcase','Student-built app'],
-    body: "An artifact built for forty children can become a method for hundreds \u2014 if someone helps lift it out. Teachers are already sharing progress with their colleagues, pitching ministries, and watching their own students build apps that lead other schools. What\u2019s missing is a shared repository, the way STEAM has one, that any teacher in the network can pull from and contribute to. Lab leads sit in the middle: identify which artifacts are ready to travel, pair them with the people who can move them."
+    body: "An artifact built for forty children can become a method for hundreds \u2014 if someone helps lift it out. Teachers are already sharing progress with their colleagues, pitching ministries, and watching their own students build apps that lead other schools. What\u2019s missing is a shared repository, the way STEAM has one, that any teacher in the network can pull from and contribute to. Lab leads sit in the middle: identify which artifacts are ready to travel, pair them with the people who can move them.",
+    bodyLong: "An artifact built for forty children can become a method for hundreds \u2014 sometimes thousands \u2014 if someone helps lift it out. The lab is already full of cases where this is happening informally: teachers presenting to their colleagues, pitching ministries, watching their own students build apps that other schools then adopt. The escalation pathway exists, but it is manual and uneven, and most artifacts that could travel don\u2019t.\n\nWhat\u2019s missing is a shared repository, the way STEAM education has one, that any teacher in the network can pull from and contribute to. Not a curated app store with editors and gatekeepers \u2014 a living collection that surfaces what other practitioners have actually used, in what contexts, with what caveats. The artifact carries its own provenance: who built it, who tested it, what changed.\n\nLab leads sit in the middle of this. Their role is to identify which artifacts are ready to travel \u2014 not the polished ones necessarily, but the ones whose method generalizes \u2014 and to pair them with the people who can move them: a teacher in another country, a researcher who can validate it, a policymaker who needs a concrete example. The escalation pathway becomes a system, not a series of accidents."
   },
   {
     id: 'anthropic-line',
     title: "A direct line to Anthropic for coordinated asks",
     keywords: ['anthropic','partner','upstream','company','contact','support','feedback','pilot','model','feature'],
     matchTags: ['Anthropic direct line','Coordinated ask upstream','Pro-license activation'],
-    body: "Anthropic is already paying attention to the lab. The opportunity is to make the channel two-way: when a small group of lab leads is pursuing the same problem \u2014 say, classroom privacy, or local-language tuning \u2014 the lab can package that as a coordinated request rather than a scatter of individual DMs. Each lab lead becomes a point of contact for one thread, with a named counterpart at Anthropic to keep the conversation moving."
+    body: "Anthropic is already paying attention to the lab. The opportunity is to make the channel two-way: when a small group of lab leads is pursuing the same problem \u2014 say, classroom privacy, or local-language tuning \u2014 the lab can package that as a coordinated request rather than a scatter of individual DMs. Each lab lead becomes a point of contact for one thread, with a named counterpart at Anthropic to keep the conversation moving.",
+    bodyLong: "Anthropic is already paying attention to the lab. The opportunity \u2014 raised explicitly in the conversations \u2014 is to make the channel two-way, more structured, and more useful for both sides. Right now feedback flows up in scattered ways: an individual DM, a comment in a workshop, a question that bubbles into a session. Most of it doesn\u2019t aggregate into anything Anthropic can act on.\n\nA coordinated channel changes that. When a small group of lab leads is actively pursuing the same problem \u2014 classroom privacy, local-language fine-tuning, video pipelines, agent reliability \u2014 the lab can package the request as a single coherent thread rather than as fifty individual asks. Anthropic gets a clearer signal about where investment matters; the lab gets faster and more substantive answers.\n\nThe practical shape: each lab lead owns a thread, with a named counterpart inside Anthropic who keeps the conversation moving on the other side. Not a formal partnership, just a connective tissue that respects both sides\u2019 time and makes the work easier to coordinate."
   },
   {
     id: 'onboarding',
     title: "Fixing onboarding so applicants don\u2019t fall through",
     keywords: ['onboard','onboarding','apply','application','approval','process','join','fellow','alumni','wait','response','invite'],
     matchTags: ['Onboarding fast-track','Onboarding cohort','Pro-license activation'],
-    body: "Several applicants applied to the lab earlier and never heard back \u2014 a hiccup in the approval pipeline when one person was running the whole thing. The fix is structural: a clear onboarding cohort, a fast-track lane for referrals from existing members, and lab leads who can co-host the welcome so it doesn\u2019t bottleneck on the founder again."
+    body: "Several applicants applied to the lab earlier and never heard back \u2014 a hiccup in the approval pipeline when one person was running the whole thing. The fix is structural: a clear onboarding cohort, a fast-track lane for referrals from existing members, and lab leads who can co-host the welcome so it doesn\u2019t bottleneck on the founder again.",
+    bodyLong: "Several promising applicants applied to the lab earlier and never heard back \u2014 a hiccup in the approval pipeline that traces directly back to the single-host problem. When one person is running intake, community management, and programming all at once, applications fall through the cracks, and the people most affected are exactly the people the lab most wants: motivated outsiders who took a risk to apply.\n\nThe fix is structural, not procedural. A clear onboarding cohort \u2014 say, a small group welcomed together every two or four weeks \u2014 means new members arrive with peers and a shared starting context rather than dropping into a noisy chat. A fast-track lane for referrals from existing members preserves quality without slowing entry. And lab leads can co-host the welcome, share the load of orientation, and make sure no application sits unanswered for months.\n\nThe onboarding experience is also the first signal a new member receives about whether the lab takes them seriously. Getting it right \u2014 fast, warm, contextual \u2014 dramatically raises the chance they will go on to contribute."
   },
   {
     id: 'levels',
     title: "Where do I sit \u2014 beginner, intermediate, advanced?",
     keywords: ['level','beginner','intermediate','advanced','progress','skill','self','identify','place','where'],
     matchTags: ['Skill-level self-placement','Learning pathway design'],
-    body: "Newer creators are unsure where they sit on a beginner\u2013intermediate\u2013advanced spectrum, and that uncertainty makes it harder to know who to ask for help and what to aim for next. Lab leads don\u2019t need formal levels, but a lightweight self-placement \u2014 paired with the expertise directory \u2014 helps people see a path forward without turning the lab into a credentialing pipeline."
+    body: "Newer creators are unsure where they sit on a beginner\u2013intermediate\u2013advanced spectrum, and that uncertainty makes it harder to know who to ask for help and what to aim for next. Lab leads don\u2019t need formal levels, but a lightweight self-placement \u2014 paired with the expertise directory \u2014 helps people see a path forward without turning the lab into a credentialing pipeline.",
+    bodyLong: "Newer creators kept raising the same uncertainty in conversation: where do I sit? Beginner, intermediate, advanced? It sounds like a small question, but it shapes everything downstream \u2014 which sessions to attend, who to ask for help, which artifacts to attempt, whether to post in the main chat or wait until you feel more ready.\n\nLab leads don\u2019t need to introduce formal levels \u2014 the moment the lab starts grading members, it becomes a different kind of community. But a lightweight self-placement, paired with the expertise directory, gives people a frame: I am intermediate on prompting, beginner on agents, working toward classroom deployment. Now the social map has axes, and the right questions can be asked of the right people.\n\nThe goal is orientation, not certification. People should be able to update their own placement freely as they grow, and lab leads should resist any drift toward turning the lab into a credentialing pipeline. The lab\u2019s strength is that it is a community of practitioners \u2014 the levels are scaffolding, not gates."
   },
   {
     id: 'curriculum-moment',
     title: "Every curriculum is changing at once",
     keywords: ['curriculum','change','moment','history','teacher','teaching','pedagogy','world','transformation','school'],
     matchTags: ['Government curriculum pitch','Cross-country co-build','K\u201312 evidence base'],
-    body: "This is the only moment in living memory when every country\u2019s curriculum, pedagogy, and assessment practice is in motion at the same time. A teacher in Kenya, a teacher in the UK, a teacher in Catalonia are wrestling with the same functional dilemma in completely different policy contexts. The lab is small enough to act on this and connected enough to compare notes \u2014 that combination is the moment\u2019s real opportunity."
+    body: "This is the only moment in living memory when every country\u2019s curriculum, pedagogy, and assessment practice is in motion at the same time. A teacher in Kenya, a teacher in the UK, a teacher in Catalonia are wrestling with the same functional dilemma in completely different policy contexts. The lab is small enough to act on this and connected enough to compare notes \u2014 that combination is the moment\u2019s real opportunity.",
+    bodyLong: "This is the only moment in living memory \u2014 the transcripts return to this point again and again \u2014 when every country\u2019s curriculum, pedagogy, and assessment practice is in motion at the same time. Usually education changes one system at a time, slowly, in isolation from peer systems elsewhere. Right now, every system is reconsidering itself simultaneously, and most are doing so without much access to what other systems are learning.\n\nA teacher in Kenya, a teacher in the UK, a teacher in Catalonia are wrestling with the same functional dilemma \u2014 how AI changes what learning evidence looks like, what assessment can mean, what teachers spend their time on \u2014 inside completely different policy contexts. The functional questions are universal even when the policy answers are local.\n\nThe lab is small enough to act on this and connected enough to compare notes across those contexts in near real time. That combination \u2014 small enough to be coherent, connected enough to span the change \u2014 is the moment\u2019s real opportunity. Treating it as a working consortium rather than a chat community is what would let it punch above its size."
   }
 ];
 
@@ -1628,8 +1670,10 @@ function submitQuery(){
   state.matchOrder = ordered;
   // populate panel
   iTitle.textContent = chosen.title;
-  // wrap query keywords in <em> within the body for resonance
-  iBody.innerHTML = highlightQuery(chosen.body, q);
+  expandedMode = false;
+  insightsEl.classList.remove('expanded');
+  if (iExpandLabel) iExpandLabel.textContent = 'Expand';
+  renderInsightBody();
   iSrc.textContent = String(8 + Math.floor(Math.random()*5));
   iMatch.textContent = String(set.size);
   state.connectionsOn = false;
@@ -1668,8 +1712,53 @@ qInput.addEventListener('keydown', e => {
 iClose.addEventListener('click', () => {
   closeInsights();
   qInput.value = '';
-  setTimeout(() => qInput.focus(), 200);
+  expandedMode = false;
+  insightsEl.classList.remove('expanded');
+  if (iExpandLabel) iExpandLabel.textContent = 'Expand';
+  // Default behaviour: returning to play (resume dynamics). User can pause again to search.
+  if (state.paused) togglePause();
 });
+
+const iExpand = document.getElementById('i-expand');
+const iExpandLabel = document.getElementById('i-expand-label');
+const iCopy = document.getElementById('i-copy');
+const iCopyLabel = document.getElementById('i-copy-label');
+let expandedMode = false;
+
+function renderInsightBody(){
+  if (!state.currentInsight) return;
+  const ins = state.currentInsight;
+  const text = expandedMode ? (ins.bodyLong || ins.body) : ins.body;
+  const paragraphs = text.split(/\n\n+/);
+  const q = qInput.value.trim();
+  iBody.innerHTML = paragraphs.map(p => '<p>' + highlightQuery(p, q) + '</p>').join('');
+  insightsEl.classList.toggle('expanded', expandedMode);
+  iExpandLabel.textContent = expandedMode ? 'Collapse' : 'Expand';
+}
+
+iExpand.addEventListener('click', () => {
+  expandedMode = !expandedMode;
+  renderInsightBody();
+});
+
+iCopy.addEventListener('click', async () => {
+  if (!state.currentInsight) return;
+  const ins = state.currentInsight;
+  const body = expandedMode ? (ins.bodyLong || ins.body) : ins.body;
+  const text = ins.title + '\n\n' + body;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    ta.remove();
+  }
+  iCopy.classList.add('copied');
+  iCopyLabel.textContent = 'Copied';
+  setTimeout(() => { iCopy.classList.remove('copied'); iCopyLabel.textContent = 'Copy'; }, 1600);
+});
+
 iConnect.addEventListener('click', () => {
   state.connectionsOn = !state.connectionsOn;
   iConnect.classList.toggle('on', state.connectionsOn);
